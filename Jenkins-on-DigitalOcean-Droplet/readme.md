@@ -26,8 +26,8 @@ Jenkins, Docker, DigitalOcean, Linux
 ### Connect to the Server
 
 7. Open your terminal and connect to the droplet via SSH:
-   ```bash
-   ssh root@IP_DROPLET
+```bash
+ ssh root@IP_DROPLET
 ```
 
 8. Update the package lists: `apt update`
