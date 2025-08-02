@@ -229,14 +229,14 @@ chmod +x ./freestyle-build.sh
 ### 🐳Docker in Jenkins
 
 1. **Stop your Docker container:**
-   ```bash
+```bash
    docker ps
    docker stop <container_id>
 ```
 
 2. Check that the Jenkins volume still exists: `docker volume ls`.
 3. Start a new Jenkins container with volumes attached (for Jenkins data and Docker socket). Second volume is a docker volume on the host (droplet) and we’ll mount it in the container under the same destination:
-```
+```bash
 docker run -p 8080:8080 -p 50000:50000 -d \
   -v jenkins_home:/var/jenkins_home \
   -v /var/run/docker.sock:/var/run/docker.sock \
@@ -247,12 +247,12 @@ docker run -p 8080:8080 -p 50000:50000 -d \
 5. Open your browser and go to `http://<your-droplet-ip>:8080`
 Jenkins should be running with the previous configuration. Log in as usual.
 6. Access the Jenkins container (as root):
-```
+```bash
 docker exec -u 0 -it <container_id> bash
 ```
 
 7. Enable Docker inside the Jenkins container:
-```
+```bash
 curl https://get.docker.com/ > dockerinstall && chmod 777 dockerinstall && ./dockerinstall
 ```
 
@@ -344,7 +344,7 @@ java-maven-app     1.0       abc123456789   X minutes ago   XYZMB
 #### 🛠️ 5. Add build step to tag and push the Docker image
 
 - Scroll to **Build** → Add **Execute shell** step with the following script:
-  ```bash
+```bash
   docker build -t dockerhubrepo:1.0 .
   echo $PASSWORD | docker login -u $USERNAME --password-stdin
   docker push dockerhubrepo:1.0
@@ -364,7 +364,7 @@ Go to [https://hub.docker.com/](https://hub.docker.com/).
 Open your demo-app repository.
 You should see the image tag listed.
 
-### ## 🚢 Push Docker Image to Nexus Repository
+##### 🚢 Push Docker Image to Nexus Repository
 
 1. **Add insecure registries to Docker daemon** on the droplet:  
    Edit `/etc/docker/daemon.json` using `vim` or your preferred editor:
@@ -394,11 +394,12 @@ exit
    - In the job configuration, replace Docker Hub credentials with `nexus-docker-repo`.
 
 9. **Build and push Docker image to Nexus repo**  
-   ```bash
+
+```bash
    docker build -t CONTAINER_ID:8083/java-maven-app:1.1 .
    echo $PASSWORD | docker login -u $USERNAME --password-stdin CONTAINER_ID:8083
    docker push CONTAINER_ID:8083/java-maven-app:1.1
-  ```
+```
 
 10. Build the project and check the console output
 Ensure that the image is pushed without errors.
