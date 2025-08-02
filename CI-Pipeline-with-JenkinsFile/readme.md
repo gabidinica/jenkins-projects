@@ -286,9 +286,9 @@ If the image pulls successfully, your setup is working correctly!
    - Open the build log to verify that the Docker image was built successfully.
 
 3. **Verify the image exists (in your terminal):**
-   ```bash
-   docker images
-  ```
+```bash
+docker images
+```
 
 You should see something like:
 REPOSITORY         TAG       IMAGE ID       CREATED         SIZE
@@ -364,11 +364,11 @@ Go to [https://hub.docker.com/](https://hub.docker.com/).
 Open your demo-app repository.
 You should see the image tag listed.
 
-##### 🚢 Push Docker Image to Nexus Repository
+#### 🚢 Push Docker Image to Nexus Repository
 
 1. **Add insecure registries to Docker daemon** on the droplet:  
    Edit `/etc/docker/daemon.json` using `vim` or your preferred editor:
-   ```json
+```json
    {
      "insecure-registries": ["IP_ADDRESS:8083"]
    }
