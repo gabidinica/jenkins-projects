@@ -1,12 +1,12 @@
 # Demo Project
 
-## Goal
-Create a CI Pipeline with `Jenkinsfile` using:
-- Freestyle
-- Pipeline
-- Multibranch Pipeline
+### Create a CI Pipeline with `Jenkinsfile` using:
+- [Freestyle](#freestyle)
+- [Pipeline](#pipeline)
+- [Multibranch Pipeline](#multibranch-pipeline)
 
-## Technologies Used
+
+#### Technologies Used
 - Jenkins  
 - Docker  
 - Linux  
@@ -14,7 +14,7 @@ Create a CI Pipeline with `Jenkinsfile` using:
 - Java  
 - Maven  
 
-## Project Description
+#### Project Description
 CI Pipeline for a Java Maven application to build and push to the repository.
 
 ### Steps:
@@ -32,11 +32,11 @@ Each job should:
 - c. Build the Docker image  
 - d. Push the Docker image to a private DockerHub repository  
 
-## I. Install Build Tools (Maven, Node) in Jenkins
+### Install Build Tools (Maven, Node) in Jenkins
 
 There are two options for installing build tools:
 
-#### Option 1: Install via Jenkins UI
+##### Option 1: Install via Jenkins UI
 
 ##### 1. Configure Plugin for Maven
 - In the browser, on Jenkins, click on **Tools**  
@@ -56,7 +56,7 @@ sudo apt update
 sudo apt install maven
 ```
 
-### Install npm and Node in Jenkins Container
+#### Install npm and Node in Jenkins Container
 
 1. Go to terminal and SSH into your droplet as root:
 
@@ -109,7 +109,7 @@ apt install nodejs
 > Verify the Node.js installation by checking the version: `node -v`
 > Check the installed npm version: `npm -v`
 
-#### Install Stage View Plugin
+##### Install Stage View Plugin
 
 The Stage View plugin shows the progress of each pipeline stage.
 
@@ -140,7 +140,7 @@ docker start <container_id>
 6. Click on the Installed tab, and you should see the plugin listed as installed.
 
 
-# Freestyle JOB
+## Freestyle
 
 1. In your browser, go to `http://DROPLET_IP:8080`.  
 2. To create a new job, click on **New Item**.  
@@ -209,7 +209,7 @@ chmod +x ./freestyle-build.sh
 ./freestyle-build.sh
 ```
 
-### B. Run Tests and Build Jar File
+#### B. Run Tests and Build Jar File
 
 1. Create a new Freestyle project named: `java-maven-build`.  
 2. Under **Source Code Management**, select **Git**.  
@@ -226,4 +226,222 @@ chmod +x ./freestyle-build.sh
 8. Run the job.  
 9. Click on the latest **Build**, then go to **Console Output** to check the test results.
 
+### 🐳Docker in Jenkins
 
+1. **Stop your Docker container:**
+   ```bash
+   docker ps
+   docker stop <container_id>
+```
+
+2. Check that the Jenkins volume still exists: `docker volume ls`.
+3. Start a new Jenkins container with volumes attached (for Jenkins data and Docker socket). Second volume is a docker volume on the host (droplet) and we’ll mount it in the container under the same destination:
+```
+docker run -p 8080:8080 -p 50000:50000 -d \
+  -v jenkins_home:/var/jenkins_home \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  jenkins/jenkins:lts
+```
+
+4. Verify the container is running: `docker ps`.
+5. Open your browser and go to `http://<your-droplet-ip>:8080`
+Jenkins should be running with the previous configuration. Log in as usual.
+6. Access the Jenkins container (as root):
+```
+docker exec -u 0 -it <container_id> bash
+```
+
+7. Enable Docker inside the Jenkins container:
+```
+curl https://get.docker.com/ > dockerinstall && chmod 777 dockerinstall && ./dockerinstall
+```
+
+Jenkins will fetch the latest Docker version from the official site, install it inside the container, and configure it.
+8. Check permissions on the Docker socket file: `ls -l /var/run/docker.sock`.
+You should see something like: **srw-rw---- 1 root 111 0 Jul 31 11:22 /var/run/docker.sock**
+9. Update permissions to allow all users to access Docker: `chmod 666 /var/run/docker.sock`
+✅ Test that Jenkins can now run Docker commands:
+
+Log in to the container as the jenkins user: `docker exec -it <container_id> bash`
+- Then try: docker pull redis
+If the image pulls successfully, your setup is working correctly!
+
+#### 🛠️ Build Docker Image from Jenkins
+
+1. **Edit the `java-maven-build` job in the browser:**
+   - Open Jenkins and go to the `java-maven-build` job.
+   - Click **Configure**.
+   - **Remove** the existing test step (if any).
+   - **Add a new build step**:
+     - Select: **Execute shell**
+     - Command:
+       ```bash
+       docker build -t java-maven-app:1.0 .
+       ```
+  
+   - Click **Save**.
+
+2. **Build the project:**
+   - Click **Build Now** in the job.
+   - Open the build log to verify that the Docker image was built successfully.
+
+3. **Verify the image exists (in your terminal):**
+   ```bash
+   docker images
+  ```
+
+You should see something like:
+REPOSITORY         TAG       IMAGE ID       CREATED         SIZE
+java-maven-app     1.0       abc123456789   X minutes ago   XYZMB
+
+## 📦 Push Docker Image to Docker Hub
+
+### 🔐 1. Create a Docker Hub account and repository
+- Go to [https://hub.docker.com/](https://hub.docker.com/)
+- Create a new **repository** named: `demo-app`
+- Set it to **Private**
+- Click **Create**
+
+---
+
+#### 🔑 2. Add Docker Hub credentials in Jenkins
+
+- Navigate to:  
+  **Jenkins Dashboard → Manage Jenkins → Security → Credentials**
+- Under **Stores scoped to Jenkins**, click on **System**
+- Click: **Global credentials (unrestricted)**  
+  URL path should be:  
+  `/manage/credentials/store/system/domain/_/`
+
+- Click **Add Credentials** and fill in:
+  - **Kind:** Username with password
+  - **Username:** your Docker Hub username
+  - **Password:** your Docker Hub password
+  - **ID:** `docker-hub`
+  - **Description:** `Docker Hub`
+
+---
+
+#### ⚙️ 3. Configure `java-maven-build` job to push the image
+
+- Go to your **`java-maven-build`** job in Jenkins
+- Click **Configure**
+
+---
+
+#### 🔐 4. Bind Docker Hub credentials securely
+
+- Scroll to **Build Environment**
+- Check: **Use secret text(s) or file(s)**
+- Under **Bindings**, click **Add**
+  - Select: **Username and password (separated)**
+  - Username variable: `USERNAME`
+  - Password variable: `PASSWORD`
+  - Credentials: select the one labeled `Docker Hub`
+
+---
+ 
+#### 🛠️ 5. Add build step to tag and push the Docker image
+
+- Scroll to **Build** → Add **Execute shell** step with the following script:
+  ```bash
+  docker build -t dockerhubrepo:1.0 .
+  echo $PASSWORD | docker login -u $USERNAME --password-stdin
+  docker push dockerhubrepo:1.0
+```
+
+- Replace dockerhubrepo with your actual Docker Hub repo.
+- Make sure to use environment variables or credentials binding to securely access the Docker Hub username and password.
+- Click Save.
+
+#### ▶️ 6. Build the project
+- Click Build Now
+- Check the console output to verify:
+- Docker login was successful
+
+#### 🌐 7. Verify the image on Docker Hub
+Go to [https://hub.docker.com/](https://hub.docker.com/). 
+Open your demo-app repository.
+You should see the image tag listed.
+
+### ## 🚢 Push Docker Image to Nexus Repository
+
+1. **Add insecure registries to Docker daemon** on the droplet:  
+   Edit `/etc/docker/daemon.json` using `vim` or your preferred editor:
+   ```json
+   {
+     "insecure-registries": ["IP_ADDRESS:8083"]
+   }
+```
+
+2. Restart Docker: systemctl restart docker
+3. List all containers (including stopped ones): docker ps -a
+4. Run the container: docker start <container_id>
+5. Access the container as root and update permissions on Docker socket
+```bash
+docker exec -u 0 -it <CONTAINER_ID> bash
+chmod 666 /var/run/docker.sock
+exit
+```
+
+6. Exit the container: *exit*
+7. **Create Nexus credentials in Jenkins**  
+   - Similar to Docker Hub credentials, go to:  
+     **Jenkins Dashboard → Manage Jenkins → Security → Credentials**  
+   - Add new credentials for Nexus and name them `nexus-docker-repo`.
+
+8. **Configure `java-maven-build` to use Nexus credentials**  
+   - In the job configuration, replace Docker Hub credentials with `nexus-docker-repo`.
+
+9. **Build and push Docker image to Nexus repo**  
+   ```bash
+   docker build -t CONTAINER_ID:8083/java-maven-app:1.1 .
+   echo $PASSWORD | docker login -u $USERNAME --password-stdin CONTAINER_ID:8083
+   docker push CONTAINER_ID:8083/java-maven-app:1.1
+  ```
+
+10. Build the project and check the console output
+Ensure that the image is pushed without errors.
+11. Verify the image in Nexus
+Log in to your Nexus repository manager and confirm the image is listed.
+
+## Pipeline
+
+All the changes are done in the `Jenkinsfile`. You can update it with your private Docker Hub repo name.
+
+1. In the browser, go to **New Item**.
+2. Name the job: `my-pipeline` and select **Pipeline** as the type.
+3. In the **Pipeline** section:
+   - Choose **Pipeline script from SCM**.
+   - Select **Git** as the SCM.
+   - Paste the URL of the `java-maven-app` repository.
+   - Select the same credentials used in the previous job.
+4. Specify the branch to build, e.g., `jenkins-branch`.
+5. Verify the **Script Path** is set to `Jenkinsfile`.
+6. Click **Save** and then **Build Now**.
+
+> **OBS:**  
+> If your droplet was stopped and you restarted the container,  
+> you need to re-add read/write permissions to `docker.sock`:
+
+1. Access the container as root:
+   ```bash
+   docker exec -u 0 -it <container_ID> bash
+   ```
+
+2. Add the permissions: `chmod 666 /var/run/docker.sock`
+3. Exit the container: `exit`
+
+##  Multibranch Pipeline
+
+1. In the browser, go to **New Item**.
+2. Name the job: `my-multibranch-pipeline` and select **Multibranch Pipeline** as the option.
+3. In **Branch Sources**, configure Git:
+   - Add a Git source with the HTTPS URL of your GitHub repository.
+4. Under **Discover branches**, select **Filter by name (with regular expression)** and use `.*` to match all branches.
+5. Click **Save**.
+6. **OBS:** Whenever a Jenkinsfile is found in a branch, Jenkins will build that branch. If no Jenkinsfile is present, the branch is skipped.  
+   (You have one Jenkinsfile that is shared across branches.)
+7. When you click inside `my-multibranch-pipeline`, all branches will be displayed.
+8. To rerun branch scans, click on **Scan Multibranch Pipeline Now**.
+ 
