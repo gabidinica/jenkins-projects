@@ -65,8 +65,6 @@
 
 ## 3. Configure Jenkins to Trigger CI on Github Push
 
-## 6. Configure Jenkins Job and GitHub Webhook
-
 ### In Jenkins:
 
 - Go to your Jenkins dashboard
